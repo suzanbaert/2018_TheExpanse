@@ -4,6 +4,7 @@
 
 library(stringr)
 library(dplyr)
+library(tidyr)
 library(tidytext)
 
 
@@ -14,11 +15,10 @@ all_epubs <- paste0("epub_expanse/", all_epubs)
 
 
 #importing data just 1
-expanse1_epub <- epubr::epub(file = "epub_expanse/James SA Corey - The Expanse 01 - Leviathan Wakes.epub") 
+expanse1_epub <- epubr::epub(file = all_epubs[1])
 
 
-
-#importing all 
+#importing all
 expanse_series_epub <- epubr::epub(all_epubs, fields = c("creator", "title", "date", "data"))
 
 
@@ -73,16 +73,39 @@ expanse1_tokens <- expanse1 %>%
   add_count(chapter)
 
 
-
-
-
-
 #word count
 expanse1_tokens %>%
   anti_join(stop_words, by = "word") %>% 
-  count(word, sort = TRUE) 
+  count(word, sort = TRUE)  
 
 
 
 
+
+
+# -----
+# EXPANSE ALL
+# -----
+
+#adding book numbers, correcting titles, abbreviating year
+expanse_epub_2 <- expanse_series_epub %>% 
+  mutate(book = 1:7,
+         launch_year = str_extract(date, "[0-9]{4}"),
+         title = str_remove(title, ":.*"),
+         title = str_remove(title, "Expanse 03 - "),
+         title = forcats::fct_reorder(title, book)) %>% 
+  select(book, title, launch_year, data)
+
+
+
+#keep only the secions that start with Prologue, Chapter, Epilogue, Interlude and THOTH station
+expanse_series <- expanse_epub_2 %>% 
+  unnest() %>% 
+  mutate(firstword = str_extract(text, "[[:alpha:]]*")) %>% 
+  filter(firstword %in% c("Prologue", "Chapter", "Epilogue", "Interlude", "THOTH")) %>% 
+  select(-section, -firstword)
+
+
+
+#### NEED To add thoth station to pevious chapter - not a seperate part
 
