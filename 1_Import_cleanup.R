@@ -40,15 +40,21 @@ split_header_from_text <- str_split(expanse1_text$text, "\n", n = 2)
 split_header_from_text <- purrr::transpose(split_header_from_text)
 
 chapter_header <- unlist(split_header_from_text[1])
-chapter_text <- unlist(split_header_from_text[2])
-#chapter_number <- c("Prologue", 1:36, "Interlude", 36:55, "Epilogue")
-chapter_number2 <- c(NA, 1:36, NA, 36:55, NA)
 
+#extracting point of view character from header
 chapter_pov <- str_extract(chapter_header, "[[:alpha:]]+$")
 chapter_pov <- na_if(chapter_pov, "STATION")
 
+#extracting chapter number
+chapter <- str_remove(chapter_header, "Chapter ")
+chapter <- str_remove(chapter, ":.*")
+chapter_number2 <- c(NA, 1:35, NA, 36:55, NA)
 
-#cleaning chapter text
+
+
+
+#chapter text
+chapter_text <- unlist(split_header_from_text[2])
 
 
 
