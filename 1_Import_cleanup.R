@@ -5,7 +5,6 @@
 library(stringr)
 library(dplyr)
 library(tidyr)
-library(tidytext)
 
 
 
@@ -62,9 +61,7 @@ chapter_secondpart <- unlist(chapter_split_tr[2])
 chapter_pov <- str_extract(chapter_secondpart, "[[:alpha:]]+")
 chapter_text <- str_remove(chapter_secondpart, "[[:alpha:]]+") %>% str_trim()
 
-#fixing encoding issues
-chapter_text <- iconv(chapter_text, from="windows-1252", to="UTF-8")
-chapter_text <- str_replace(chapter_text, "â€™", "'")
+
 
 
 #back to one dataframe
@@ -72,7 +69,8 @@ expanse <- expanse_epub_unnested %>%
   select(book, launch_year, title, chapter_type = firstword) %>% 
   mutate(chapter_number = chapter_number,
          chapter_pov = chapter_pov,
-         chapter_text = chapter_text)
+         chapter_text = chapter_text,
+         section = 1:nrow(.))
 
 
 
