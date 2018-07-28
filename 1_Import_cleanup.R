@@ -14,9 +14,6 @@ all_epubs <- list.files(path = "epub_expanse/")
 all_epubs <- paste0("epub_expanse/", all_epubs)
 
 
-#importing data just 1
-expanse1_epub <- epubr::epub(file = all_epubs[1])
-
 
 #importing all
 expanse_series_epub <- epubr::epub(all_epubs, fields = c("creator", "title", "date", "data"))
@@ -24,68 +21,10 @@ expanse_series_epub <- epubr::epub(all_epubs, fields = c("creator", "title", "da
 
 
 
-# ---------
-# EXPANSE 1
-# ---------
 
-
-#expanse1
-expanse1_text <- expanse1_epub$data[[1]]
-
-#cleanup: drop opening pages until prologue, and drop pages after epilogue
-expanse1_text <- expanse1_text[4:61, ]
-
-
-
-#string split to get the chapter headers split from the actual chapter text, then transpose to get the right lists.
-split_header_from_text <- str_split(expanse1_text$text, "\n", n = 2)
-split_header_from_text <- purrr::transpose(split_header_from_text)
-
-chapter_text <- unlist(split_header_from_text[2])
-chapter_header <- unlist(split_header_from_text[1])
-
-#extracting point of view character from header
-chapter_pov <- str_extract(chapter_header, "[[:alpha:]]+$")
-chapter_pov <- na_if(chapter_pov, "STATION")
-
-#extracting chapter number
-chapter <- str_remove(chapter_header, "Chapter ")
-chapter <- str_remove(chapter, ":.*")
-chapter_number <- c(NA, 1:35, NA, 36:55, NA)
-
-
-#fixing encoding issues
-this <- c("didn’t", "he’d", "don’t")
-chapter_text <- iconv(chapter_text, from="windows-1252", to="UTF-8")
-chapter_text <- str_replace(chapter_text, "â€™", "'")
-
-
-#back to dataframe
-expanse1 <- tibble(chapter_no = chapter_number,
-                   chapter = chapter,
-                   pov = chapter_pov,
-                   text = chapter_text)
-
-
-#unnest_tokens
-expanse1_tokens <- expanse1 %>% 
-  unnest_tokens(word, text) %>% 
-  add_count(chapter)
-
-
-#word count
-expanse1_tokens %>%
-  anti_join(stop_words, by = "word") %>% 
-  count(word, sort = TRUE)  
-
-
-
-
-
-
-# -----
-# EXPANSE ALL
-# -----
+# ---------------------
+# Cleaning expanse text
+# ---------------------
 
 #adding book numbers, correcting titles, abbreviating year
 expanse_epub_2 <- expanse_series_epub %>% 
@@ -99,13 +38,42 @@ expanse_epub_2 <- expanse_series_epub %>%
 
 
 #keep only the secions that start with Prologue, Chapter, Epilogue, Interlude and THOTH station
-expanse_series <- expanse_epub_2 %>% 
+expanse_epub_unnested <- expanse_epub_2 %>% 
   unnest() %>% 
+  
+  #fix chapter that got accidentally split
+  mutate(text = str_replace(text, "^THOTH", "Chapter Thirty-Five: Holden \n THOTH")) %>% 
+  
+  #extract first word and get rid of any section that is not amongst these. rest are intro or extra pages that don't belong to the story
   mutate(firstword = str_extract(text, "[[:alpha:]]*")) %>% 
-  filter(firstword %in% c("Prologue", "Chapter", "Epilogue", "Interlude", "THOTH")) %>% 
-  select(-section, -firstword)
+  filter(firstword %in% c("Prologue", "Chapter", "Epilogue", "Interlude"))
+
+
+#split chapter header off
+chapter_split <- str_split(expanse_epub_unnested$text, ":", n = 2)
+chapter_split_tr <- purrr::transpose(chapter_split)
+
+#extract header
+chapter_firstpart <- unlist(chapter_split_tr[1])
+chapter_number <- str_remove(chapter_firstpart, "[[:alpha:]]+") %>% str_trim()
+
+#extract text 
+chapter_secondpart <- unlist(chapter_split_tr[2])
+chapter_pov <- str_extract(chapter_secondpart, "[[:alpha:]]+")
+chapter_text <- str_remove(chapter_secondpart, "[[:alpha:]]+") %>% str_trim()
+
+#fixing encoding issues
+chapter_text <- iconv(chapter_text, from="windows-1252", to="UTF-8")
+chapter_text <- str_replace(chapter_text, "â€™", "'")
+
+
+#back to one dataframe
+expanse <- expanse_epub_unnested %>% 
+  select(book, launch_year, title, chapter_type = firstword) %>% 
+  mutate(chapter_number = chapter_number,
+         chapter_pov = chapter_pov,
+         chapter_text = chapter_text)
 
 
 
-#### NEED To add thoth station to pevious chapter - not a seperate part
-
+saveRDS(expanse, "expanse_series.RDS")
